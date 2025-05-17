@@ -15,21 +15,28 @@ Această aplicație web (realizată cu Flask) permite:
 ```bash
 git clone https://github.com/utilizatorul-tau/analiza_temperaturi.git
 cd analiza_temperaturi
-2. Creează un mediu virtual (opțional, dar recomandat)
+```
+2. Creează un mediu virtual (opțional, dar recomandat)  
+```bash
 python -m venv venv
 venv\Scripts\activate  # pe Windows
 # sau
 source venv/bin/activate  # pe Linux/macOS
+```
 3. Instalează dependențele
+```bash
 pip install -r requirements.txt
+```
 4. Rulează aplicația
+```bash
 python analiza_flir.py
+```
 5. Deschide aplicația în browser
 Accesează:
 http://127.0.0.1:5000/
 
 🗂 Structura fișierelor
-
+```bash
 analiza_temperaturi/
 ├── app.py
 ├── requirements.txt
@@ -41,6 +48,7 @@ analiza_temperaturi/
 │   └── fișiere CSV încărcate de utilizator
 ├── README.md
 └── .gitignore
+```
 
 🧪 Formatul fișierului CSV
 CSV-ul tău trebuie să:
