@@ -1,0 +1,12 @@
+# Cache și fișiere temporare Python
+__pycache__/
+*.pyc
+
+# Uploaduri locale
+uploads/
+
+# Imagini generate
+static/*.png
+
+# Setări locale (opțional)
+.env

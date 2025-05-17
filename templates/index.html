@@ -14,6 +14,10 @@
             color: white;
             border: 1px solid #444;
         }
+        .form-check-input {
+            background-color: #2E2E2E;
+            border: 1px solid #555;
+        }
         .btn {
             margin-top: 10px;
         }
@@ -41,7 +45,7 @@
 
     {% if columns %}
         <hr class="my-4">
-        <h2>Selectează coloana pentru histogramă și temperatura de referință</h2>
+        <h2>Selectează coloana și temperatura de referință</h2>
 
         <form method="POST">
             <select name="column" class="form-select mb-3" required>
@@ -55,7 +59,16 @@
                 <option value="aveOralM" {% if ref_choice == 'aveOralM' %}selected{% endif %}>Temperatura orală medie – bărbați</option>
             </select>
 
-            <button type="submit" class="btn btn-success">Generează histogramă comparativă</button>
+            <h5 class="mt-4">Alege graficele de generat:</h5>
+            {% for key, label in grafice.items() %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="grafice" value="{{ key }}" id="{{ key }}"
+                           {% if key in request.form.getlist('grafice') %}checked{% endif %}>
+                    <label class="form-check-label" for="{{ key }}">{{ label }}</label>
+                </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-success mt-3">Generează grafice</button>
         </form>
     {% endif %}
 
@@ -74,6 +87,24 @@
         <img src="{{ regression_url }}" class="img-fluid mt-3">
         {% if regression_info %}
             <div class="mt-3">{{ regression_info | safe }}</div>
+        {% endif %}
+    {% endif %}
+
+    {% if cumulativa_url %}
+        <hr class="my-4">
+        <h2>Histogramă cumulativă</h2>
+        <img src="{{ cumulativa_url }}" class="img-fluid mt-3">
+        {% if cumulativa_info %}
+            <div class="mt-3">{{ cumulativa_info | safe }}</div>
+        {% endif %}
+    {% endif %}
+
+    {% if densitate_url %}
+        <hr class="my-4">
+        <h2>Densitate de probabilitate (KDE)</h2>
+        <img src="{{ densitate_url }}" class="img-fluid mt-3">
+        {% if densitate_info %}
+            <div class="mt-3">{{ densitate_info | safe }}</div>
         {% endif %}
     {% endif %}
 
