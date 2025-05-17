@@ -5,8 +5,5 @@ __pycache__/
 # Uploaduri locale
 uploads/
 
-# Imagini generate
-static/*.png
-
 # Setări locale (opțional)
 .env
