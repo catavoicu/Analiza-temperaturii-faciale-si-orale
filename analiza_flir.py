@@ -25,6 +25,7 @@ cumulativa_url = None
 densitate_url = None
 cumulativa_info = None
 densitate_info = None
+clasificare_text = None
 
 plt.style.use('dark_background')
 
@@ -32,7 +33,8 @@ GRAFICE_DISPONIBILE = {
     'comparativa': 'Histogramă comparativă',
     'regresie': 'Regresie liniară',
     'cumulativa': 'Histogramă cumulativă',
-    'densitate': 'Densitate de probabilitate (KDE)'
+    'densitate': 'Densitate de probabilitate (KDE)',
+    'clasificare': 'Clasificare temperaturi (subnormală, normală, ridicată)'
 }
 
 def interpretare_corelatie(r):
@@ -53,12 +55,12 @@ def index():
     global df_cache, selected_column, ref_choice
     global comparison_url, regression_url, stats, regression_info
     global cumulativa_url, densitate_url, cumulativa_info, densitate_info
+    global clasificare_text
 
     columns = []
     selected_grafice = []
 
     if request.method == 'POST':
-        # Resetăm toate valorile
         comparison_url = None
         regression_url = None
         stats = None
@@ -67,6 +69,7 @@ def index():
         densitate_url = None
         cumulativa_info = None
         densitate_info = None
+        clasificare_text = None
 
         if 'file' in request.files:
             file = request.files['file']
@@ -85,39 +88,34 @@ def index():
                 except Exception as e:
                     return render_template('index.html', error=f"Eroare la procesare: {str(e)}")
 
-        elif 'column' in request.form and 'ref' in request.form and 'grafice' in request.form:
+        elif 'column' in request.form and 'ref' in request.form:
             selected_column = request.form['column']
             ref_choice = request.form['ref']
             selected_grafice = request.form.getlist('grafice')
 
             if df_cache is not None:
                 df_col = df_cache[selected_column].dropna()
-                mean_val = df_col.mean()
-                std_val = df_col.std()
-                var_val = df_col.var()
-                stats = f"Media: {mean_val:.2f} °C | Deviație standard: {std_val:.2f} °C | Variație: {var_val:.2f} °C²"
 
                 if 'comparativa' in selected_grafice:
                     fig, axes = plt.subplots(1, 2, figsize=(14, 5), facecolor='#2E2E2E')
-                    plt.subplots_adjust(left=0.08, right=0.92, wspace=0.5)
                     axes[0].set_facecolor('#2E2E2E')
                     axes[1].set_facecolor('#2E2E2E')
 
-                    df_cache[selected_column].dropna().hist(
-                        bins=30, ax=axes[0], color='deepskyblue', edgecolor='black'
-                    )
-                    axes[0].set_title(f'{selected_column}')
-                    axes[0].set_xlabel("Temperatură (°C)")
-                    axes[0].set_ylabel("Frecvență")
+                    df_ref = df_cache[ref_choice].dropna()
 
-                    df_cache[ref_choice].dropna().hist(
-                        bins=30, ax=axes[1], color='hotpink', edgecolor='black'
-                    )
+                    df_col.hist(bins=30, ax=axes[0], color='#4C78A8', edgecolor='black')
+                    df_ref.hist(bins=30, ax=axes[1], color='#F58518', edgecolor='black')
+                    axes[0].set_title(selected_column)
                     axes[1].set_title(ref_choice)
-                    axes[1].set_xlabel("Temperatură (°C)")
-                    axes[1].set_ylabel("Frecvență")
+
+                    # Calculează statistici pentru coloana analizată
+                    media = df_col.mean()
+                    dev_std = df_col.std()
+                    varianta = df_col.var()
+                    stats = f"Media: {media:.2f} °C | Deviație standard: {dev_std:.2f} °C | Varianță: {varianta:.2f} °C²"
 
                     comp_path = os.path.join('static', 'comparison.png')
+                    plt.tight_layout()
                     plt.savefig(comp_path, facecolor='#2E2E2E')
                     plt.close()
                     comparison_url = url_for('static', filename='comparison.png')
@@ -126,77 +124,88 @@ def index():
                     df_reg = df_cache[[selected_column, ref_choice]].dropna()
                     slope, intercept, r_value, _, _ = linregress(df_reg[selected_column], df_reg[ref_choice])
                     tip_corelatie = interpretare_corelatie(r_value)
-
                     regression_info = (
-                        f"<strong>Ecuația regresiei liniare:</strong><br>"
-                        f"y = {slope:.2f}·x + {intercept:.2f} <small>(unde x este temperatura facială, y este temperatura orală estimată)</small><br><br>"
-                        f"<strong>Coeficient de corelație Pearson:</strong><br>"
-                        f"r = {r_value:.2f} &nbsp;&nbsp; <small>({tip_corelatie})</small>"
+                        f"<strong>Ecuație:</strong> y = {slope:.2f}x + {intercept:.2f}<br>"
+                        f"<strong>r:</strong> {r_value:.2f} ({tip_corelatie})"
                     )
-
                     fig = plt.figure(figsize=(6, 5), facecolor='#2E2E2E')
-                    ax = plt.gca()
+                    ax = fig.gca()
                     ax.set_facecolor('#2E2E2E')
-                    plt.scatter(df_reg[selected_column], df_reg[ref_choice], alpha=0.5, color='cyan')
-                    plt.plot(df_reg[selected_column], slope * df_reg[selected_column] + intercept, color='red')
-                    plt.xlabel(selected_column + " (°C)")
-                    plt.ylabel(ref_choice + " (°C)")
+                    plt.scatter(df_reg[selected_column], df_reg[ref_choice], alpha=0.5, color='#72B7B2')
+                    plt.plot(df_reg[selected_column], slope * df_reg[selected_column] + intercept, color='#F58518')
+                    plt.xlabel(selected_column)
+                    plt.ylabel(ref_choice)
                     plt.title("Regresie liniară")
                     plt.tight_layout()
-                    reg_path = os.path.join('static', 'regression.png')
-                    plt.savefig(reg_path, facecolor='#2E2E2E')
+                    path = os.path.join('static', 'regression.png')
+                    plt.savefig(path, facecolor='#2E2E2E')
                     plt.close()
                     regression_url = url_for('static', filename='regression.png')
 
                 if 'cumulativa' in selected_grafice:
-                    p25 = df_col.quantile(0.25)
-                    median = df_col.median()
-                    p75 = df_col.quantile(0.75)
-                    min_val = df_col.min()
-                    max_val = df_col.max()
-
-                    cumulativa_info = (
-                        f"<strong>Percentile:</strong><br>"
-                        f"P25: {p25:.2f} °C<br>"
-                        f"Mediana: {median:.2f} °C<br>"
-                        f"P75: {p75:.2f} °C<br>"
-                        f"Interval: [{min_val:.2f} °C – {max_val:.2f} °C]"
-                    )
-
                     fig = plt.figure(figsize=(6, 4), facecolor='#2E2E2E')
                     ax = fig.gca()
                     ax.set_facecolor('#2E2E2E')
-                    df_col.hist(bins=30, cumulative=True, density=True, color='orange', edgecolor='black')
-                    plt.title(f"Histogramă cumulativă - {selected_column}")
-                    plt.xlabel("Valori")
-                    plt.ylabel("Frecvență cumulativă")
+                    df_col.hist(bins=30, cumulative=True, density=True, color='#4C78A8', edgecolor='black')
+                    plt.title("Histogramă cumulativă")
+                    plt.tight_layout()
                     path = os.path.join('static', 'cumulativa.png')
                     plt.savefig(path, facecolor='#2E2E2E')
                     plt.close()
                     cumulativa_url = url_for('static', filename='cumulativa.png')
 
                 if 'densitate' in selected_grafice:
-                    kde = df_col.plot.kde()
-                    x = kde.get_lines()[0].get_xdata()
-                    y = kde.get_lines()[0].get_ydata()
-                    peak_x = x[np.argmax(y)]
-
-                    densitate_info = (
-                        f"<strong>Media:</strong> {df_col.mean():.2f} °C<br>"
-                        f"<strong>Densitate maximă estimată la:</strong> ~{peak_x:.2f} °C"
-                    )
-
                     fig = plt.figure(figsize=(6, 4), facecolor='#2E2E2E')
                     ax = fig.gca()
                     ax.set_facecolor('#2E2E2E')
-                    df_col.plot(kind='kde', color='lime', linewidth=2, ax=ax)
-                    plt.title(f"Densitate de probabilitate (KDE) - {selected_column}")
-                    plt.xlabel("Valori")
-                    plt.ylabel("Densitate")
+                    df_col.plot(kind='kde', color='#72B7B2', linewidth=2, ax=ax)
+                    plt.title("Densitate KDE")
+                    plt.tight_layout()
                     path = os.path.join('static', 'densitate.png')
                     plt.savefig(path, facecolor='#2E2E2E')
                     plt.close()
                     densitate_url = url_for('static', filename='densitate.png')
+
+                if 'clasificare' in selected_grafice:
+                    df_filtered = df_cache.dropna(subset=[selected_column, 'Gender'])
+
+                    def clasifica(serie):
+                        return {
+                            'Subnormală': (serie < 36.5).sum(),
+                            'Normală': ((serie >= 36.5) & (serie <= 37.5)).sum(),
+                            'Ridicată': (serie > 37.5).sum()
+                        }
+
+                    def generate_pie_chart(valori, filename):
+                        fig, ax = plt.subplots(figsize=(6, 5), facecolor='#2E2E2E')
+                        ax.set_facecolor('#2E2E2E')
+                        etichete = ['Subnormală', 'Normală', 'Ridicată']
+                        culori = ['#4C78A8', '#72B7B2', '#F58518']
+                        total = sum(valori)
+                        procente = [f"{label}: {val} ({val / total:.1%})" for label, val in zip(etichete, valori)]
+                        wedges, _ = ax.pie(valori, colors=culori, startangle=140, wedgeprops={'edgecolor': 'black'})
+                        ax.legend(wedges, procente, title="Categorii", loc="center left",
+                                  bbox_to_anchor=(1, 0.5), facecolor='#2E2E2E',
+                                  labelcolor='white', title_fontsize='10', fontsize='9')
+                        path = os.path.join('static', filename)
+                        plt.savefig(path, facecolor='#2E2E2E', bbox_inches='tight')
+                        plt.close()
+                        return url_for('static', filename=filename)
+
+                    femei = df_filtered[df_filtered['Gender'].str.lower() == 'female'][selected_column].dropna()
+                    barbati = df_filtered[df_filtered['Gender'].str.lower() == 'male'][selected_column].dropna()
+                    cl_femei = clasifica(femei)
+                    cl_barbati = clasifica(barbati)
+                    femei_url = generate_pie_chart(list(cl_femei.values()), "clasificare_femei.png")
+                    barbati_url = generate_pie_chart(list(cl_barbati.values()), "clasificare_barbati.png")
+                    clasificare_text = {
+                        'femei_url': femei_url,
+                        'barbati_url': barbati_url,
+                        'femei_stats': cl_femei,
+                        'barbati_stats': cl_barbati,
+                        'femei_count': len(femei),
+                        'barbati_count': len(barbati)
+                    }
 
     columns = df_cache.select_dtypes(include='number').columns.tolist() if df_cache is not None else []
     return render_template(
@@ -212,7 +221,8 @@ def index():
         cumulativa_url=cumulativa_url,
         cumulativa_info=cumulativa_info,
         densitate_url=densitate_url,
-        densitate_info=densitate_info
+        densitate_info=densitate_info,
+        clasificare_text=clasificare_text
     )
 
 if __name__ == '__main__':

@@ -9,6 +9,35 @@
             background-color: #1E1E2E;
             color: #ffffff;
         }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding-bottom: 50px;
+        }
+        h1, h2, h5 {
+            font-weight: 600;
+        }
+        h1 {
+            font-size: 2rem;
+        }
+        h2 {
+            font-size: 1.5rem;
+            margin-top: 40px;
+        }
+        h5 {
+            margin-top: 20px;
+        }
+        label {
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+        .form-section, .charts-section {
+            background-color: #2A2A3D;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            border: 1px solid #444;
+        }
         .form-select, .form-control {
             background-color: #2E2E2E;
             color: white;
@@ -18,8 +47,14 @@
             background-color: #2E2E2E;
             border: 1px solid #555;
         }
+        .form-check-label {
+            margin-left: 5px;
+        }
         .btn {
             margin-top: 10px;
+            padding: 10px 20px;
+            font-weight: 500;
+            border-radius: 8px;
         }
         .img-fluid {
             border: 2px solid #444;
@@ -28,38 +63,54 @@
         hr {
             border-color: #555;
         }
+        .classification-report {
+            background-color: #2E2E2E;
+            border: 1px solid #555;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .chart-title {
+            font-size: 1.25rem;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
     </style>
 </head>
-<body class="container mt-5">
+<body class="container">
 
+<!-- Upload form section -->
+<div class="form-section">
     <h1 class="mb-4">Încarcă fișierul CSV</h1>
-
     {% if error %}
         <div class="alert alert-danger">{{ error }}</div>
     {% endif %}
-
     <form method="POST" enctype="multipart/form-data">
         <input type="file" name="file" accept=".csv" class="form-control mb-3" required>
         <button type="submit" class="btn btn-primary">Încarcă fișier</button>
     </form>
+</div>
 
-    {% if columns %}
-        <hr class="my-4">
-        <h2>Selectează coloana și temperatura de referință</h2>
+<!-- Column selection and options -->
+{% if columns %}
+<div class="form-section">
+    <h2>Selectează coloana și temperatura de referință</h2>
+    <form method="POST">
+        <label for="column">Coloană de analizat:</label>
+        <select name="column" class="form-select mb-3" required>
+            {% for col in columns %}
+                <option value="{{ col }}" {% if selected_column == col %}selected{% endif %}>{{ col }}</option>
+            {% endfor %}
+        </select>
 
-        <form method="POST">
-            <select name="column" class="form-select mb-3" required>
-                {% for col in columns %}
-                    <option value="{{ col }}" {% if selected_column == col %}selected{% endif %}>{{ col }}</option>
-                {% endfor %}
-            </select>
+        <label for="ref">Temperatură de referință:</label>
+        <select name="ref" class="form-select mb-3" required>
+            <option value="aveOralF" {% if ref_choice == 'aveOralF' %}selected{% endif %}>Temperatura orală medie – femei</option>
+            <option value="aveOralM" {% if ref_choice == 'aveOralM' %}selected{% endif %}>Temperatura orală medie – bărbați</option>
+        </select>
 
-            <select name="ref" class="form-select mb-3" required>
-                <option value="aveOralF" {% if ref_choice == 'aveOralF' %}selected{% endif %}>Temperatura orală medie – femei</option>
-                <option value="aveOralM" {% if ref_choice == 'aveOralM' %}selected{% endif %}>Temperatura orală medie – bărbați</option>
-            </select>
-
-            <h5 class="mt-4">Alege graficele de generat:</h5>
+        <h5>Alege graficele de generat:</h5>
+        <div class="mb-3">
             {% for key, label in grafice.items() %}
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="grafice" value="{{ key }}" id="{{ key }}"
@@ -67,46 +118,86 @@
                     <label class="form-check-label" for="{{ key }}">{{ label }}</label>
                 </div>
             {% endfor %}
+        </div>
 
-            <button type="submit" class="btn btn-success mt-3">Generează grafice</button>
-        </form>
-    {% endif %}
+        <button type="submit" class="btn btn-success">Generează grafice</button>
+    </form>
+</div>
+{% endif %}
 
-    {% if comparison_url %}
-        <hr class="my-4">
-        <h2>Histogramă comparativă</h2>
+<!-- Charts -->
+{% if comparison_url %}
+<div class="charts-section">
+    <h2 class="chart-title">Histogramă comparativă</h2>
+    <div class="d-flex justify-content-center">
         <img src="{{ comparison_url }}" class="img-fluid mt-3">
-        {% if stats %}
-            <p class="mt-3"><strong>{{ stats }}</strong></p>
-        {% endif %}
+    </div>
+    {% if stats %}
+    <p class="mt-3 text-center"><strong>{{ stats }}</strong></p>
     {% endif %}
 
-    {% if regression_url %}
-        <hr class="my-4">
-        <h2>Regresie liniară și corelație</h2>
+</div>
+{% endif %}
+
+{% if regression_url %}
+<div class="charts-section">
+    <h2 class="chart-title">Regresie liniară și corelație</h2>
+    <div class="d-flex justify-content-center">
         <img src="{{ regression_url }}" class="img-fluid mt-3">
-        {% if regression_info %}
-            <div class="mt-3">{{ regression_info | safe }}</div>
-        {% endif %}
+    </div>
+    {% if regression_info %}
+        <div class="mt-3 text-center">{{ regression_info | safe }}</div>
     {% endif %}
+</div>
+{% endif %}
 
-    {% if cumulativa_url %}
-        <hr class="my-4">
-        <h2>Histogramă cumulativă</h2>
+{% if cumulativa_url %}
+<div class="charts-section">
+    <h2 class="chart-title">Histogramă cumulativă</h2>
+    <div class="d-flex justify-content-center">
         <img src="{{ cumulativa_url }}" class="img-fluid mt-3">
-        {% if cumulativa_info %}
-            <div class="mt-3">{{ cumulativa_info | safe }}</div>
-        {% endif %}
+    </div>
+    {% if cumulativa_info %}
+        <div class="mt-3 text-center">{{ cumulativa_info | safe }}</div>
     {% endif %}
+</div>
+{% endif %}
 
-    {% if densitate_url %}
-        <hr class="my-4">
-        <h2>Densitate de probabilitate (KDE)</h2>
+{% if densitate_url %}
+<div class="charts-section">
+    <h2 class="chart-title">Densitate de probabilitate (KDE)</h2>
+    <div class="d-flex justify-content-center">
         <img src="{{ densitate_url }}" class="img-fluid mt-3">
-        {% if densitate_info %}
-            <div class="mt-3">{{ densitate_info | safe }}</div>
-        {% endif %}
+    </div>
+    {% if densitate_info %}
+        <div class="mt-3 text-center">{{ densitate_info | safe }}</div>
     {% endif %}
+</div>
+{% endif %}
+
+
+<!-- Clasificare -->
+{% if clasificare_text %}
+<div class="charts-section">
+    <h2 class="chart-title">Clasificare temperaturi</h2>
+    <div class="classification-report mt-3 text-center">
+        <p><strong>Am analizat {{ clasificare_text.femei_count + clasificare_text.barbati_count }} pacienți</strong>,
+           dintre care <strong>{{ clasificare_text.femei_count }}</strong> femei și
+           <strong>{{ clasificare_text.barbati_count }}</strong> bărbați.</p>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <h5>Femei</h5>
+                <img src="{{ clasificare_text.femei_url }}" class="img-fluid mb-3">
+            </div>
+            <div class="col-md-6">
+                <h5>Bărbați</h5>
+                <img src="{{ clasificare_text.barbati_url }}" class="img-fluid mb-3">
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 </body>
 </html>
