@@ -34,8 +34,8 @@ GRAFICE_DISPONIBILE = {
     'regresie': 'Regresie liniară',
     'cumulativa': 'Histogramă cumulativă',
     'densitate': 'Densitate de probabilitate (KDE)',
-    'clasificare': 'Clasificare temperaturi',
-    'autocorelatie': 'Autocorelatie'
+    'autocorelatie': 'Autocorelatie',
+    'clasificare': 'Clasificare temperaturi'
 }
 
 def interpretare_corelatie(r):
@@ -176,6 +176,47 @@ def index():
                     plt.savefig(path, facecolor='#2E2E2E')
                     plt.close()
                     autocorelatie_url = url_for('static', filename='autocorelatie.png')
+
+                if 'clasificare' in selected_grafice:
+                    df_filtered = df_cache.dropna(subset=[selected_column, 'Gender'])
+
+                    def clasifica(serie):
+                        return {
+                            'Subnormală': (serie < 36.5).sum(),
+                            'Normală': ((serie >= 36.5) & (serie <= 37.5)).sum(),
+                            'Ridicată': (serie > 37.5).sum()
+                        }
+
+                    def generate_pie_chart(valori, filename):
+                        fig, ax = plt.subplots(figsize=(6, 5), facecolor='#2E2E2E')
+                        ax.set_facecolor('#2E2E2E')
+                        etichete = ['Subnormală', 'Normală', 'Ridicată']
+                        culori = ['#4C78A8', '#72B7B2', '#F58518']
+                        total = sum(valori)
+                        procente = [f"{label}: {val} ({val / total:.1%})" for label, val in zip(etichete, valori)]
+                        wedges, _ = ax.pie(valori, colors=culori, startangle=140, wedgeprops={'edgecolor': 'black'})
+                        ax.legend(wedges, procente, title="Categorii", loc="center left",
+                                  bbox_to_anchor=(1, 0.5), facecolor='#2E2E2E',
+                                  labelcolor='white', title_fontsize='10', fontsize='9')
+                        path = os.path.join('static', filename)
+                        plt.savefig(path, facecolor='#2E2E2E', bbox_inches='tight')
+                        plt.close()
+                        return url_for('static', filename=filename)
+
+                    femei = df_filtered[df_filtered['Gender'].str.lower() == 'female'][selected_column].dropna()
+                    barbati = df_filtered[df_filtered['Gender'].str.lower() == 'male'][selected_column].dropna()
+                    cl_femei = clasifica(femei)
+                    cl_barbati = clasifica(barbati)
+                    femei_url = generate_pie_chart(list(cl_femei.values()), "clasificare_femei.png")
+                    barbati_url = generate_pie_chart(list(cl_barbati.values()), "clasificare_barbati.png")
+                    clasificare_text = {
+                        'femei_url': femei_url,
+                        'barbati_url': barbati_url,
+                        'femei_stats': cl_femei,
+                        'barbati_stats': cl_barbati,
+                        'femei_count': len(femei),
+                        'barbati_count': len(barbati)
+                    }
 
     columns = df_cache.select_dtypes(include='number').columns.tolist() if df_cache is not None else []
     return render_template(
