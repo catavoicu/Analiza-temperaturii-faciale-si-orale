@@ -73,67 +73,59 @@
             border-radius: 8px;
             margin-top: 0 !important;
         }
-        hr {
-            border-color: #555;
-        }
-        .classification-report {
-            background-color: #2E2E2E;
-            border: 1px solid #555;
-            padding: 15px;
-            border-radius: 10px;
-        }
-        .chart-title {
-            font-size: 1.25rem;
-            font-weight: 500;
-            margin-bottom: 10px;
-            margin-top: 5px;
-        }
     </style>
 </head>
 <body class="container">
 
-<!-- Titlu principal -->
 <h1>Analiza temperaturii faciale și orale</h1>
 
-<!-- Upload form section -->
 <div class="form-section">
     <h2>Încarcă fișierul CSV</h2>
     {% if error %}
         <div class="alert alert-danger">{{ error }}</div>
     {% endif %}
     <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".csv" class="form-control mb-3" required>
+        <input type="file" name="file" accept=".csv" class="form-control mb-2" required>
+        {% if uploaded_filename %}
+            <div class="form-text text-success mb-2">Fișier selectat: <strong>{{ uploaded_filename }}</strong></div>
+        {% else %}
+            <div class="form-text text-muted mb-2">Niciun fișier selectat</div>
+        {% endif %}
         <button type="submit" class="btn btn-primary">Încarcă fișier</button>
     </form>
 </div>
 
-<!-- Column selection and options -->
+
 {% if columns %}
 <div class="form-section">
     <h2>Selectează coloana și temperatura de referință</h2>
     <form method="POST">
-        <label for="column">Coloană de analizat:</label>
+        <label class="text-start w-100">Coloană de analizat:</label>
         <select name="column" class="form-select mb-3" required>
             {% for col in columns %}
                 <option value="{{ col }}" {% if selected_column == col %}selected{% endif %}>{{ col }}</option>
             {% endfor %}
         </select>
 
-        <label for="ref">Temperatură de referință:</label>
+        <label class="text-start w-100">Temperatură de referință:</label>
         <select name="ref" class="form-select mb-3" required>
             <option value="aveOralF" {% if ref_choice == 'aveOralF' %}selected{% endif %}>Temperatura orală medie – femei</option>
             <option value="aveOralM" {% if ref_choice == 'aveOralM' %}selected{% endif %}>Temperatura orală medie – bărbați</option>
         </select>
 
-        <h5>Alege graficele de generat:</h5>
-        <div class="mb-3">
+        <h5 class="text-start">Alege graficele de generat:</h5>
+        <div class="mb-3 text-start">
             {% for key, label in grafice.items() %}
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="grafice" value="{{ key }}" id="{{ key }}"
-                           {% if key in request.form.getlist('grafice') %}checked{% endif %}>
+                    <input class="form-check-input grafica-checkbox" type="checkbox" name="grafice" value="{{ key }}" id="{{ key }}"
+                           {% if key in selected_grafice %}checked{% endif %}>
                     <label class="form-check-label" for="{{ key }}">{{ label }}</label>
                 </div>
             {% endfor %}
+        </div>
+
+        <div class="text-start mb-3">
+            <button type="button" class="btn btn-outline-light btn-sm" id="toggleAllBtn" onclick="toggleAll()">Selectează toate</button>
         </div>
 
         <button type="submit" class="btn btn-success">Generează grafice</button>
@@ -141,44 +133,41 @@
 </div>
 {% endif %}
 
-<!-- Charts -->
 {% if comparison_url %}
 <div class="charts-section">
-    <h2 class="chart-title">Histogramă comparativă</h2>
+    <h2>Histogramă comparativă</h2>
     <img src="{{ comparison_url }}" class="img-fluid">
-    {% if stats %}
-    <p class="mt-3 text-center"><strong>{{ stats }}</strong></p>
-    {% endif %}
+    {% if stats %}<p class="mt-3"><strong>{{ stats }}</strong></p>{% endif %}
 </div>
 {% endif %}
 
 {% if regression_url %}
 <div class="charts-section">
-    <h2 class="chart-title">Regresie liniară și corelație</h2>
+    <h2>Regresie liniară</h2>
     <img src="{{ regression_url }}" class="img-fluid">
     {% if regression_info %}
-        <div class="mt-3 text-center">{{ regression_info | safe }}</div>
+        <p class="mt-3">{{ regression_info|safe }}</p>
     {% endif %}
 </div>
 {% endif %}
 
 {% if cumulativa_url %}
 <div class="charts-section">
-    <h2 class="chart-title">Histogramă cumulativă</h2>
+    <h2>Histogramă cumulativă</h2>
     <img src="{{ cumulativa_url }}" class="img-fluid">
 </div>
 {% endif %}
 
 {% if densitate_url %}
 <div class="charts-section">
-    <h2 class="chart-title">Densitate de probabilitate (KDE)</h2>
+    <h2>Densitate de probabilitate</h2>
     <img src="{{ densitate_url }}" class="img-fluid">
 </div>
 {% endif %}
 
 {% if autocorelatie_url %}
 <div class="charts-section">
-    <h2 class="chart-title">Autocorelatie</h2>
+    <h2>Autocorelatie</h2>
     <img src="{{ autocorelatie_url }}" class="img-fluid">
 </div>
 {% endif %}
@@ -205,6 +194,15 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+function toggleAll() {
+    const checkboxes = document.querySelectorAll('.grafica-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    document.getElementById('toggleAllBtn').textContent = allChecked ? 'Selectează toate' : 'Deselectează toate';
+}
+</script>
 
 </body>
 </html>
