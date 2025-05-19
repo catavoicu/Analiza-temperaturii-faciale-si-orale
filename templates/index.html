@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Analiză temperaturi</title>
+    <title>Analiza temperaturii faciale și orale</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -18,7 +18,10 @@
             font-weight: 600;
         }
         h1 {
-            font-size: 2rem;
+            font-size: 2.2rem;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 40px;
         }
         h2 {
             font-size: 1.5rem;
@@ -33,22 +36,31 @@
         }
         .form-section, .charts-section {
             background-color: #2A2A3D;
-            padding: 20px;
+            padding: 15px 20px 20px;
             border-radius: 12px;
             margin-bottom: 40px;
             border: 1px solid #444;
+            text-align: center;
         }
         .form-select, .form-control {
             background-color: #2E2E2E;
             color: white;
             border: 1px solid #444;
         }
+        .form-check {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
         .form-check-input {
+            margin: 0 10px 0 0;
+            width: 1.1em;
+            height: 1.1em;
             background-color: #2E2E2E;
             border: 1px solid #555;
         }
         .form-check-label {
-            margin-left: 5px;
+            margin: 0;
         }
         .btn {
             margin-top: 10px;
@@ -59,6 +71,7 @@
         .img-fluid {
             border: 2px solid #444;
             border-radius: 8px;
+            margin-top: 0 !important;
         }
         hr {
             border-color: #555;
@@ -71,17 +84,20 @@
         }
         .chart-title {
             font-size: 1.25rem;
-            margin-bottom: 15px;
-            text-align: center;
             font-weight: 500;
+            margin-bottom: 10px;
+            margin-top: 5px;
         }
     </style>
 </head>
 <body class="container">
 
+<!-- Titlu principal -->
+<h1>Analiza temperaturii faciale și orale</h1>
+
 <!-- Upload form section -->
 <div class="form-section">
-    <h1 class="mb-4">Încarcă fișierul CSV</h1>
+    <h2>Încarcă fișierul CSV</h2>
     {% if error %}
         <div class="alert alert-danger">{{ error }}</div>
     {% endif %}
@@ -129,22 +145,17 @@
 {% if comparison_url %}
 <div class="charts-section">
     <h2 class="chart-title">Histogramă comparativă</h2>
-    <div class="d-flex justify-content-center">
-        <img src="{{ comparison_url }}" class="img-fluid mt-3">
-    </div>
+    <img src="{{ comparison_url }}" class="img-fluid">
     {% if stats %}
     <p class="mt-3 text-center"><strong>{{ stats }}</strong></p>
     {% endif %}
-
 </div>
 {% endif %}
 
 {% if regression_url %}
 <div class="charts-section">
     <h2 class="chart-title">Regresie liniară și corelație</h2>
-    <div class="d-flex justify-content-center">
-        <img src="{{ regression_url }}" class="img-fluid mt-3">
-    </div>
+    <img src="{{ regression_url }}" class="img-fluid">
     {% if regression_info %}
         <div class="mt-3 text-center">{{ regression_info | safe }}</div>
     {% endif %}
@@ -154,27 +165,23 @@
 {% if cumulativa_url %}
 <div class="charts-section">
     <h2 class="chart-title">Histogramă cumulativă</h2>
-    <div class="d-flex justify-content-center">
-        <img src="{{ cumulativa_url }}" class="img-fluid mt-3">
-    </div>
-    {% if cumulativa_info %}
-        <div class="mt-3 text-center">{{ cumulativa_info | safe }}</div>
-    {% endif %}
+    <img src="{{ cumulativa_url }}" class="img-fluid">
 </div>
 {% endif %}
 
 {% if densitate_url %}
 <div class="charts-section">
     <h2 class="chart-title">Densitate de probabilitate (KDE)</h2>
-    <div class="d-flex justify-content-center">
-        <img src="{{ densitate_url }}" class="img-fluid mt-3">
-    </div>
-    {% if densitate_info %}
-        <div class="mt-3 text-center">{{ densitate_info | safe }}</div>
-    {% endif %}
+    <img src="{{ densitate_url }}" class="img-fluid">
 </div>
 {% endif %}
 
+{% if autocorelatie_url %}
+<div class="charts-section">
+    <h2 class="chart-title">Autocorelatie</h2>
+    <img src="{{ autocorelatie_url }}" class="img-fluid">
+</div>
+{% endif %}
 
 <!-- Clasificare -->
 {% if clasificare_text %}

@@ -8,6 +8,7 @@ import numpy as np
 import os
 from werkzeug.utils import secure_filename
 from scipy.stats import linregress
+from pandas.plotting import autocorrelation_plot
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -23,8 +24,7 @@ stats = None
 regression_info = None
 cumulativa_url = None
 densitate_url = None
-cumulativa_info = None
-densitate_info = None
+autocorelatie_url = None
 clasificare_text = None
 
 plt.style.use('dark_background')
@@ -34,7 +34,8 @@ GRAFICE_DISPONIBILE = {
     'regresie': 'Regresie liniară',
     'cumulativa': 'Histogramă cumulativă',
     'densitate': 'Densitate de probabilitate (KDE)',
-    'clasificare': 'Clasificare temperaturi (subnormală, normală, ridicată)'
+    'clasificare': 'Clasificare temperaturi',
+    'autocorelatie': 'Autocorelatie'
 }
 
 def interpretare_corelatie(r):
@@ -54,8 +55,7 @@ def interpretare_corelatie(r):
 def index():
     global df_cache, selected_column, ref_choice
     global comparison_url, regression_url, stats, regression_info
-    global cumulativa_url, densitate_url, cumulativa_info, densitate_info
-    global clasificare_text
+    global cumulativa_url, densitate_url, autocorelatie_url, clasificare_text
 
     columns = []
     selected_grafice = []
@@ -67,8 +67,7 @@ def index():
         regression_info = None
         cumulativa_url = None
         densitate_url = None
-        cumulativa_info = None
-        densitate_info = None
+        autocorelatie_url = None
         clasificare_text = None
 
         if 'file' in request.files:
@@ -100,20 +99,15 @@ def index():
                     fig, axes = plt.subplots(1, 2, figsize=(14, 5), facecolor='#2E2E2E')
                     axes[0].set_facecolor('#2E2E2E')
                     axes[1].set_facecolor('#2E2E2E')
-
                     df_ref = df_cache[ref_choice].dropna()
-
                     df_col.hist(bins=30, ax=axes[0], color='#4C78A8', edgecolor='black')
                     df_ref.hist(bins=30, ax=axes[1], color='#F58518', edgecolor='black')
                     axes[0].set_title(selected_column)
                     axes[1].set_title(ref_choice)
-
-                    # Calculează statistici pentru coloana analizată
                     media = df_col.mean()
                     dev_std = df_col.std()
                     varianta = df_col.var()
                     stats = f"Media: {media:.2f} °C | Deviație standard: {dev_std:.2f} °C | Varianță: {varianta:.2f} °C²"
-
                     comp_path = os.path.join('static', 'comparison.png')
                     plt.tight_layout()
                     plt.savefig(comp_path, facecolor='#2E2E2E')
@@ -170,46 +164,18 @@ def index():
                     plt.close()
                     densitate_url = url_for('static', filename='densitate.png')
 
-                if 'clasificare' in selected_grafice:
-                    df_filtered = df_cache.dropna(subset=[selected_column, 'Gender'])
-
-                    def clasifica(serie):
-                        return {
-                            'Subnormală': (serie < 36.5).sum(),
-                            'Normală': ((serie >= 36.5) & (serie <= 37.5)).sum(),
-                            'Ridicată': (serie > 37.5).sum()
-                        }
-
-                    def generate_pie_chart(valori, filename):
-                        fig, ax = plt.subplots(figsize=(6, 5), facecolor='#2E2E2E')
-                        ax.set_facecolor('#2E2E2E')
-                        etichete = ['Subnormală', 'Normală', 'Ridicată']
-                        culori = ['#4C78A8', '#72B7B2', '#F58518']
-                        total = sum(valori)
-                        procente = [f"{label}: {val} ({val / total:.1%})" for label, val in zip(etichete, valori)]
-                        wedges, _ = ax.pie(valori, colors=culori, startangle=140, wedgeprops={'edgecolor': 'black'})
-                        ax.legend(wedges, procente, title="Categorii", loc="center left",
-                                  bbox_to_anchor=(1, 0.5), facecolor='#2E2E2E',
-                                  labelcolor='white', title_fontsize='10', fontsize='9')
-                        path = os.path.join('static', filename)
-                        plt.savefig(path, facecolor='#2E2E2E', bbox_inches='tight')
-                        plt.close()
-                        return url_for('static', filename=filename)
-
-                    femei = df_filtered[df_filtered['Gender'].str.lower() == 'female'][selected_column].dropna()
-                    barbati = df_filtered[df_filtered['Gender'].str.lower() == 'male'][selected_column].dropna()
-                    cl_femei = clasifica(femei)
-                    cl_barbati = clasifica(barbati)
-                    femei_url = generate_pie_chart(list(cl_femei.values()), "clasificare_femei.png")
-                    barbati_url = generate_pie_chart(list(cl_barbati.values()), "clasificare_barbati.png")
-                    clasificare_text = {
-                        'femei_url': femei_url,
-                        'barbati_url': barbati_url,
-                        'femei_stats': cl_femei,
-                        'barbati_stats': cl_barbati,
-                        'femei_count': len(femei),
-                        'barbati_count': len(barbati)
-                    }
+                if 'autocorelatie' in selected_grafice:
+                    fig = plt.figure(figsize=(6, 4), facecolor='#2E2E2E')
+                    ax = fig.gca()
+                    ax.set_facecolor('#2E2E2E')
+                    autocorrelation_plot(df_col, ax=ax, color='#F58518')
+                    ax.set_title(f"{selected_column}")
+                    ax.grid(True, linestyle='--', alpha=0.5)
+                    path = os.path.join('static', 'autocorelatie.png')
+                    plt.tight_layout()
+                    plt.savefig(path, facecolor='#2E2E2E')
+                    plt.close()
+                    autocorelatie_url = url_for('static', filename='autocorelatie.png')
 
     columns = df_cache.select_dtypes(include='number').columns.tolist() if df_cache is not None else []
     return render_template(
@@ -223,9 +189,8 @@ def index():
         regression_info=regression_info,
         stats=stats,
         cumulativa_url=cumulativa_url,
-        cumulativa_info=cumulativa_info,
         densitate_url=densitate_url,
-        densitate_info=densitate_info,
+        autocorelatie_url=autocorelatie_url,
         clasificare_text=clasificare_text
     )
 
