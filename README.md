@@ -1,87 +1,89 @@
-# 📊 Analiză Temperatură Facială vs. Orală
+# Facial and Oral Temperature Analysis
 
-Această aplicație web (realizată cu Flask) permite:
-- Încărcarea unui fișier `.csv` cu temperaturi
-- Afișarea de histograme comparative între o coloană aleasă și o temperatură de referință
-- Calculul regresiei liniare și coeficientului de corelație Pearson
-- Generarea histogramei cumulative și a densității de probabilitate (KDE)
+## Project Overview
 
----
+This project is an interactive web application developed in **Python** using **Flask**, which analyzes facial and oral temperature data from a CSV file. The user can generate statistical charts, apply linear regression, analyze distributions and correlations, and automatically classify temperature values.
 
-## ▶️ Cum rulezi aplicația local
+## Key Features
 
-### 1. Clonează repository-ul
+- User-friendly web interface 
+- Upload and process CSV files containing experimental data  
+- Interactive selection of chart types:
+  - Histogram
+  - KDE (Kernel Density Estimation)
+  - Linear regression representation
+  - Temperature classification: subnormal, normal, high
+- Display of detailed row information and prediction of oral temperature
+- Multi-selection support and dynamic option retrieval without page reload
+
+## Project Structure
+
+The project includes the following files and folders:
+
+- `app.py` – Main Flask backend source code
+- `templates/` – HTML (Jinja2) templates:
+- `index.html` – Main interface
+- `static/` – Static resources:
+- `style.css` – Application styling
+- `scripts.js` – JavaScript scripts for dynamic selections
+- `uploads/` – Temporary folder for uploaded CSV files 
+
+## Usage Instructions
+
+### 1. Install Dependencies
+
+Make sure **Python 3.x** is installed, then run:
 
 ```bash
-git clone https://github.com/utilizatorul-tau/analiza_temperaturi.git
-cd analiza_temperaturi
+pip install flask pandas matplotlib seaborn scikit-learn
 ```
-2. Creează un mediu virtual (opțional, dar recomandat)  
+
+### 2. **Run the Application**
+
 ```bash
-python -m venv venv
-venv\Scripts\activate  # pe Windows
-# sau
-source venv/bin/activate  # pe Linux/macOS
+python app.py
 ```
-3. Instalează dependențele
-```bash
-pip install -r requirements.txt
-```
-4. Rulează aplicația
-```bash
-python analiza_flir.py
-```
-5. Deschide aplicația în browser
-Accesează:
-http://127.0.0.1:5000/
+Open the application in your browser at: http://localhost:5000
 
-🗂 Structura fișierelor
-```bash
-analiza_temperaturi/
-├── app.py
-├── requirements.txt
-├── templates/
-│   └── index.html
-├── static/
-│   └── *.png (generate automat pentru grafice)
-├── uploads/
-│   └── fișiere CSV încărcate de utilizator
-├── README.md
-└── .gitignore
-```
+### 3. **How to Play**
 
-🧪 Formatul fișierului CSV
-CSV-ul tău trebuie să:
+- Upload a CSV file containing temperature data.
+- Select the desired chart types and click Generate.
+- For classification, select a temperature column and click Classify.
+- You can select a specific row to view oral temperature prediction.
 
-Conțină un header la linia 3 (primele 2 rânduri sunt ignorate)
+## Screenshots
 
-Aibă coloane numerice relevante (ex: faceTemp, aveOralF, aveOralM)
 
-Evite coloanele Unnamed
+ ![Image](https://github.com/catavoicu/Analiza-temperaturii-faciale-si-orale/blob/d693f3fd90031d45d61008c0166499f680a61daa/main_page.png)
+ 
 
-## 📸 Capturi
+ ![Image](https://github.com/catavoicu/Analiza-temperaturii-faciale-si-orale/blob/master/rezultat_analiza.png)
 
-### Histogramă comparativă
-![Histogramă comparativă](static/comparison.png)
 
-### Regresie liniară
-![Regresie liniară](static/regression.png)
+ ![Image](https://github.com/catavoicu/Analiza-temperaturii-faciale-si-orale/blob/master/regresie_multipla.png)
 
-### Histogramă cumulativă
-![Histogramă cumulativă](static/cumulativa.png)
+ 
+![Image](https://github.com/catavoicu/Analiza-temperaturii-faciale-si-orale/blob/327a7555ac2f1d021582252ab62aa6fec854d75a/statistici_grup.png)
 
-### Densitate de probabilitate (KDE)
-![Densitate](static/densitate.png)
 
-📜 Licență
-Licențiat sub Licența MIT.
-Poți folosi, modifica și distribui liber codul, fără garanții sau responsabilitate.
+![Image](https://github.com/catavoicu/Analiza-temperaturii-faciale-si-orale/blob/327a7555ac2f1d021582252ab62aa6fec854d75a/clasificare_temperaturi.png)
 
-🙌 Autori
-Creat cu ❤️ de:
+ 
+## Technologies Used
 
-Enache Victor
+**Backend:** Flask  
+**Frontend:** HTML, CSS, JavaScript (Bootstrap)  
 
-Voicu Cătălin
+**Python Libraries:**
+- `pandas` – data manipulation  
+- `matplotlib`, `seaborn` – chart generation  
+- `sklearn.linear_model` – linear regression
 
-Simte-te liber să clonezi, îmbunătățești sau distribui proiectul!
+
+## Authors
+- **Names:** Catalin Voicu & Victor Enache
+- **Emails:** catavoicu01@gmail.com & enachevictor887@gmail.com
+- Project developed as part of the course: Decision and Estimation in Information Processing.
+- **University:** Faculty of Electronics, Telecommunications and Information Technology, Polytechnic University of Bucharest.
+
