@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
@@ -11,6 +13,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import r2_score
+from matplotlib.font_manager import FontProperties
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -33,6 +36,43 @@ def index():
     group_stats = None
     distributie_url = None
     regression_data = None
+
+    def clasifica(ser):
+        bins = [0, 36.0, 37.5, float('inf')]
+        etichete = ['Subnormală', 'Normală', 'Ridicată']
+        categorii = pd.cut(ser, bins=bins, labels=etichete, right=False)
+        return categorii.value_counts().reindex(etichete, fill_value=0).to_dict()
+
+    def generate_pie_chart(valori, filename):
+        fig, ax = plt.subplots(figsize=(16, 5), facecolor='#1E1E2E')  # fundal exterior
+        ax.set_facecolor('#1E1E2E')  # fundal interior (același ca în al doilea grafic)
+
+        etichete = ['Subnormală', 'Normală', 'Ridicată']
+        culori = ['#4C78A8', '#56B870', '#F58518']
+        total = sum(valori)
+        procente = [f"{label}: {val} ({val / total:.1%})" for label, val in zip(etichete, valori)]
+
+        wedges, _ = ax.pie(
+            valori,
+            colors=culori,
+            startangle=140,
+            wedgeprops={'edgecolor': 'black'},
+            textprops={'color': 'white'}
+        )
+
+        ax.legend(
+            wedges, procente, title="Categorii", loc="center left",
+            bbox_to_anchor=(1, 0.5),
+            facecolor='#1E1E2E',  # fundalul legendei
+            labelcolor='white',
+            title_fontsize='10',
+            fontsize='9'
+        )
+
+        path = os.path.join('static', filename)
+        plt.savefig(path, facecolor='#1E1E2E', bbox_inches='tight')  # salvează cu fundalul dorit
+        plt.close()
+        return url_for('static', filename=filename)
 
     if request.method == 'POST':
         if 'file' in request.files and request.files['file'].filename:
@@ -61,57 +101,126 @@ def index():
                 if selected_factor == 'Age':
                     age_order = ['<18', '18-20', '21-25', '26-30', '31-40', '41-50', '51-60', '>60']
                     order = [x for x in age_order if x in df[selected_factor].unique()]
+                    df[selected_factor] = pd.Categorical(df[selected_factor], categories=order, ordered=True)
                 else:
                     order = sorted(df[selected_factor].unique())
 
-                plt.figure(figsize=(10, 6))
-                sns.set_theme(style="darkgrid")
-                sns.violinplot(data=df, x=selected_factor, y=selected_column, palette='Set2', inner='box', order=order)
-                sns.stripplot(data=df, x=selected_factor, y=selected_column, color='white', size=3, jitter=0.3, alpha=0.3, order=order)
-                plt.title(f'Temperatura {selected_column} în funcție de {selected_factor}', fontsize=14)
-                plt.xlabel(selected_factor)
-                plt.ylabel(f'{selected_column} (°C)')
-                plt.xticks(rotation=30)
+                df[selected_column] = pd.to_numeric(df[selected_column], errors='coerce')
+                df = df.dropna(subset=[selected_column, selected_factor])
+
+                plt.style.use("dark_background")
+                fig, ax = plt.subplots(figsize=(12, 6), facecolor='#1E1E2E')
+                ax.set_facecolor('#1E1E2E')
+
+                palette_profesionala = ['#4C78A8', '#F58518', '#E45756', '#72B7B2', '#54A24B', '#EECA3B', '#B279A2',
+                                        '#FF9DA6']
+
+                sns.violinplot(
+                    data=df,
+                    x=selected_factor,
+                    y=selected_column,
+                    palette=palette_profesionala,
+                    ax=ax,
+                    inner="point"
+                )
+
+                ax.set_title(f'Temperatura {selected_column} în funcție de {selected_factor}', color='white',
+                             fontsize=14, pad=15)
+                ax.set_xlabel(selected_factor, color='white', fontsize=12)
+                ax.set_ylabel(f'{selected_column} (°C)', color='white', fontsize=12)
+                ax.tick_params(colors='white')
+                for spine in ax.spines.values():
+                    spine.set_color('#888')
+
                 plt.tight_layout()
                 path = os.path.join('static', 'plot.png')
-                plt.savefig(path)
+                plt.savefig(path, dpi=150, facecolor='#1E1E2E', bbox_inches='tight')
                 plt.close()
                 plot_url = url_for('static', filename='plot.png')
 
-                group_stats = df.groupby(selected_factor)[selected_column].agg(['mean', 'std', 'count']).round(2).reset_index()
+                # statistici
+                group_stats = df.groupby(selected_factor)[selected_column].agg(['mean', 'std', 'count']).round(
+                    2).reset_index()
 
-                if df[selected_factor].nunique() <= 5:
-                    plt.figure(figsize=(10, 5))
-                    sns.kdeplot(data=df, x=selected_column, hue=selected_factor, fill=True, alpha=0.4)
-                    plt.title(f'Distribuții KDE pentru {selected_column} după {selected_factor}')
-                    plt.xlabel(f'{selected_column} (°C)')
-                    plt.ylabel('Densitate')
-                    plt.tight_layout()
-                    distrib_path = os.path.join('static', 'distributie.png')
-                    plt.savefig(distrib_path)
-                    plt.close()
-                    distributie_url = url_for('static', filename='distributie.png')
+                # KDE numai dacă factorul are mai multe valori unice și este coloană validă
+                if selected_factor in df.columns and df[selected_factor].nunique() > 1 and selected_column in df.columns and selected_factor != 'Age':
+                    plt.style.use("dark_background")
+                    fig, ax = plt.subplots(figsize=(10, 5), facecolor='#1E1E2E')
+                    ax.set_facecolor('#1E1E2E')
+
+                    culori_kde = ['#4C78A8', '#F58518', '#E45756', '#72B7B2', '#54A24B', '#EECA3B', '#B279A2',
+                                  '#FF9DA6']
+
+                    sns.kdeplot(
+                        data=df,
+                        x=selected_column,
+                        hue=selected_factor,
+                        fill=True,
+                        alpha=0.4,
+                        palette=culori_kde,
+                        ax=ax,
+                        legend=True
+                    )
+
+                    legend = ax.get_legend()
+                    if legend:
+                        legend.get_frame().set_facecolor('#1E1E2E')  # ✅ fundal legendă
+                        legend.get_frame().set_edgecolor('#444')  # ✅ contur
+                        legend.get_frame().set_linewidth(1.0)
+                        title_font = FontProperties(size=10, weight='bold')
+                        legend.set_title(selected_factor, prop=title_font)
+                        legend.get_title().set_color('white')
+                        for text in legend.get_texts():
+                            text.set_color("white")
+
+                        plt.tight_layout()
+                        distrib_path = os.path.join('static', 'distributie.png')
+                        plt.savefig(distrib_path, facecolor='#1E1E2E', bbox_inches='tight')
+                        plt.close()
+                        distributie_url = url_for('static', filename='distributie.png')
+
+
+
 
             else:
+
                 from scipy.stats import linregress
                 slope, intercept, r_value, p_value, _ = linregress(df[selected_factor], df[selected_column])
                 regression_info = {
                     "ecuatie": f'y = {slope:.2f}x + {intercept:.2f}',
                     "r": round(r_value, 2),
                     "p": round(p_value, 4)
+
                 }
 
-                plt.figure(figsize=(9, 6))
-                sns.set_theme(style="darkgrid")
-                sns.regplot(data=df, x=selected_factor, y=selected_column, line_kws={'color': 'orange'}, scatter_kws={'alpha': 0.4})
-                plt.title(f'Temperatura {selected_column} în funcție de {selected_factor}', fontsize=14)
-                plt.xlabel(selected_factor)
-                plt.ylabel(f'{selected_column} (°C)')
-                plt.tight_layout()
+                # === GRAFIC DARK PERSONALIZAT ===
+                plt.style.use("dark_background")
+                fig, ax = plt.subplots(figsize=(10, 5), facecolor='#1E1E2E')
+                ax.set_facecolor('#1E1E2E')
+                sns.regplot(
+                    data=df,
+                    x=selected_factor,
+                    y=selected_column,
+                    ax=ax,
+                    scatter_kws={'color': '#62B6CB', 'alpha': 0.6},
+                    line_kws={'color': '#F4A261', 'linewidth': 2.5}
+
+                )
+
+                ax.set_title(f'Temperatura {selected_column} în funcție de {selected_factor}', color='white',
+                             fontsize=14, pad=15)
+
+                ax.set_xlabel(selected_factor, color='white', fontsize=12)
+                ax.set_ylabel(f'{selected_column} (°C)', color='white', fontsize=12)
+                ax.tick_params(colors='white')
+                for spine in ax.spines.values():
+                    spine.set_color('#888')
                 path = os.path.join('static', 'plot.png')
-                plt.savefig(path)
+                plt.tight_layout()
+                plt.savefig(path, dpi=150)
                 plt.close()
                 plot_url = url_for('static', filename='plot.png')
+
 
         # === REGRESIE MULTIPLA ===
         if df_cache is not None and selected_column:
@@ -146,7 +255,8 @@ def index():
 
                 # Interpretare automată
                 if r2 < 0.2:
-                    interpretare_text = "🔴 Rezultatul indică un model slab. Variabilele analizate par să aibă o influență redusă asupra temperaturii. Este posibil ca alți factori (fiziologici, emoționali sau tehnici) să joace un rol mai important."
+                    interpretare_text = ("🔴 Rezultatul indică un model slab. Variabilele analizate par să aibă o influență redusă asupra temperaturii."
+                                         "Este posibil ca alți factori (fiziologici, emoționali sau tehnici) să joace un rol mai important.")
                 elif r2 < 0.6:
                     interpretare_text = "🟡 Modelul are o putere explicativă moderată. Variabilele analizate explică parțial variația temperaturii, dar influențe externe pot fi prezente."
                 else:
@@ -156,6 +266,26 @@ def index():
                     "r2": round(r2, 3),
                     "coeficients": regression_table,
                     "interpretare": interpretare_text
+                }
+
+    clasificare_text = None
+    if df_cache is not None and selected_column and 'Gender' in df_cache.columns:
+        df_filtered = df_cache[[selected_column, 'Gender']].dropna()
+        if not df_filtered.empty:
+            femei = df_filtered[df_filtered['Gender'].str.lower() == 'female'][selected_column].dropna()
+            barbati = df_filtered[df_filtered['Gender'].str.lower() == 'male'][selected_column].dropna()
+            if not femei.empty and not barbati.empty:
+                cl_femei = clasifica(femei)
+                cl_barbati = clasifica(barbati)
+                femei_url = generate_pie_chart(list(cl_femei.values()), "clasificare_femei.png")
+                barbati_url = generate_pie_chart(list(cl_barbati.values()), "clasificare_barbati.png")
+                clasificare_text = {
+                    'femei_url': femei_url,
+                    'barbati_url': barbati_url,
+                    'femei_stats': cl_femei,
+                    'barbati_stats': cl_barbati,
+                    'femei_count': len(femei),
+                    'barbati_count': len(barbati)
                 }
 
     if df_cache is not None:
@@ -174,7 +304,8 @@ def index():
         group_stats=group_stats,
         regression_info=regression_info,
         distributie_url=distributie_url,
-        regression_data=regression_data
+        regression_data=regression_data,
+        clasificare_text=clasificare_text
     )
 
 
