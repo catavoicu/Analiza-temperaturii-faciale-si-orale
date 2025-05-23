@@ -1,14 +1,16 @@
+import os
+import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
-
-from flask import Flask, render_template, request, url_for
-import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
-import os
+import seaborn as sns
+from flask import Flask, request, render_template, url_for
 from werkzeug.utils import secure_filename
-from scipy.stats import linregress
-from pandas.plotting import autocorrelation_plot
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import r2_score
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -18,228 +20,163 @@ os.makedirs('static', exist_ok=True)
 df_cache = None
 csv_filename = None
 
-# Alte variabile globale
-selected_column = None
-ref_choice = None
-comparison_url = None
-regression_url = None
-stats = None
-regression_info = None
-cumulativa_url = None
-densitate_url = None
-autocorelatie_url = None
-clasificare_text = None
-
-plt.style.use('dark_background')
-
-GRAFICE_DISPONIBILE = {
-    'comparativa': 'Histogramă comparativă',
-    'regresie': 'Regresie liniară',
-    'cumulativa': 'Histogramă cumulativă',
-    'densitate': 'Densitate de probabilitate (KDE)',
-    'autocorelatie': 'Autocorelatie',
-    'clasificare': 'Clasificare temperaturi'
-}
-
-def interpretare_corelatie(r):
-    r = abs(r)
-    if r < 0.2:
-        return "corelație foarte slabă"
-    elif r < 0.4:
-        return "corelație slabă"
-    elif r < 0.6:
-        return "corelație moderată"
-    elif r < 0.8:
-        return "corelație puternică"
-    else:
-        return "corelație foarte puternică"
-
 @app.route('/', methods=['GET', 'POST'])
 def index():
     global df_cache, csv_filename
-    global selected_column, ref_choice
-    global comparison_url, regression_url, stats, regression_info
-    global cumulativa_url, densitate_url, autocorelatie_url, clasificare_text
 
-    columns = []
-    selected_grafice = []
-    uploaded_filename = csv_filename
+    selected_column = None
+    selected_factor = None
+    temperature_columns = []
+    factor_columns = []
+    plot_url = None
+    regression_info = None
+    group_stats = None
+    distributie_url = None
+    regression_data = None
 
     if request.method == 'POST':
-        comparison_url = regression_url = stats = regression_info = None
-        cumulativa_url = densitate_url = autocorelatie_url = clasificare_text = None
-
-        # Upload CSV
         if 'file' in request.files and request.files['file'].filename:
             file = request.files['file']
             if file.filename.endswith('.csv'):
                 filename = secure_filename(file.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
-                uploaded_filename = filename
-                csv_filename = filename  # Save to global var
-
+                csv_filename = filename
                 try:
                     df = pd.read_csv(filepath, header=2)
                     df.columns = df.columns.str.strip()
                     df = df.loc[:, ~df.columns.str.startswith('Unnamed')]
+                    df = df.dropna(how='all')
                     df_cache = df
-                    columns = df.select_dtypes(include='number').columns.tolist()
-                    return render_template('index.html', columns=columns, grafice=GRAFICE_DISPONIBILE, selected_grafice=[], uploaded_filename=uploaded_filename)
                 except Exception as e:
-                    return render_template('index.html', error=f"Eroare la procesare: {str(e)}")
+                    return render_template('index.html', error=f"Eroare: {e}")
 
-        # Generate charts
-        elif 'column' in request.form and 'ref' in request.form and df_cache is not None:
-            selected_column = request.form['column']
-            ref_choice = request.form['ref']
-            selected_grafice = request.form.getlist('grafice')
+        selected_column = request.form.get('column')
+        selected_factor = request.form.get('factor')
 
-            df_col = df_cache[selected_column].dropna()
+        if df_cache is not None and selected_column and selected_factor:
+            df = df_cache[[selected_column, selected_factor]].dropna()
 
-            if 'comparativa' in selected_grafice:
-                fig, axes = plt.subplots(1, 2, figsize=(14, 5), facecolor='#2E2E2E')
-                axes[0].set_facecolor('#2E2E2E')
-                axes[1].set_facecolor('#2E2E2E')
-                df_ref = df_cache[ref_choice].dropna()
-                df_col.hist(bins=30, ax=axes[0], color='#4C78A8', edgecolor='black')
-                df_ref.hist(bins=30, ax=axes[1], color='#F58518', edgecolor='black')
-                axes[0].set_title(selected_column)
-                axes[1].set_title(ref_choice)
-                media = df_col.mean()
-                dev_std = df_col.std()
-                varianta = df_col.var()
-                stats = f"Media: {media:.2f} °C | Deviație standard: {dev_std:.2f} °C | Varianță: {varianta:.2f} °C²"
-                comp_path = os.path.join('static', 'comparison.png')
+            if df[selected_factor].dtype == 'object' or df[selected_factor].nunique() <= 10:
+                if selected_factor == 'Age':
+                    age_order = ['<18', '18-20', '21-25', '26-30', '31-40', '41-50', '51-60', '>60']
+                    order = [x for x in age_order if x in df[selected_factor].unique()]
+                else:
+                    order = sorted(df[selected_factor].unique())
+
+                plt.figure(figsize=(10, 6))
+                sns.set_theme(style="darkgrid")
+                sns.violinplot(data=df, x=selected_factor, y=selected_column, palette='Set2', inner='box', order=order)
+                sns.stripplot(data=df, x=selected_factor, y=selected_column, color='white', size=3, jitter=0.3, alpha=0.3, order=order)
+                plt.title(f'Temperatura {selected_column} în funcție de {selected_factor}', fontsize=14)
+                plt.xlabel(selected_factor)
+                plt.ylabel(f'{selected_column} (°C)')
+                plt.xticks(rotation=30)
                 plt.tight_layout()
-                plt.savefig(comp_path, facecolor='#2E2E2E')
+                path = os.path.join('static', 'plot.png')
+                plt.savefig(path)
                 plt.close()
-                comparison_url = url_for('static', filename='comparison.png')
+                plot_url = url_for('static', filename='plot.png')
 
-            if 'regresie' in selected_grafice:
-                df_reg = df_cache[[selected_column, ref_choice]].dropna()
-                slope, intercept, r_value, _, _ = linregress(df_reg[selected_column], df_reg[ref_choice])
-                tip_corelatie = interpretare_corelatie(r_value)
-                regression_info = (
-                    f"<strong>Ecuație:</strong> y = {slope:.2f}x + {intercept:.2f}<br>"
-                    f"<strong>r:</strong> {r_value:.2f} ({tip_corelatie})"
-                )
-                fig = plt.figure(figsize=(6, 5), facecolor='#2E2E2E')
-                ax = fig.gca()
-                ax.set_facecolor('#2E2E2E')
-                plt.scatter(df_reg[selected_column], df_reg[ref_choice], alpha=0.5, color='#72B7B2')
-                plt.plot(df_reg[selected_column], slope * df_reg[selected_column] + intercept, color='#F58518')
-                plt.xlabel(selected_column)
-                plt.ylabel(ref_choice)
-                plt.title(selected_column)
-                plt.tight_layout()
-                path = os.path.join('static', 'regression.png')
-                plt.savefig(path, facecolor='#2E2E2E')
-                plt.close()
-                regression_url = url_for('static', filename='regression.png')
+                group_stats = df.groupby(selected_factor)[selected_column].agg(['mean', 'std', 'count']).round(2).reset_index()
 
-            if 'cumulativa' in selected_grafice:
-                fig = plt.figure(figsize=(6, 4), facecolor='#2E2E2E')
-                ax = fig.gca()
-                ax.set_facecolor('#2E2E2E')
-                df_col.hist(bins=30, cumulative=True, density=True, color='#4C78A8', edgecolor='black')
-                plt.title(selected_column)
-                plt.xlabel("Temperatură (°C)")
-                plt.ylabel("Frecvență cumulativă")
-                plt.tight_layout()
-                path = os.path.join('static', 'cumulativa.png')
-                plt.savefig(path, facecolor='#2E2E2E')
-                plt.close()
-                cumulativa_url = url_for('static', filename='cumulativa.png')
-
-            if 'densitate' in selected_grafice:
-                fig = plt.figure(figsize=(6, 4), facecolor='#2E2E2E')
-                ax = fig.gca()
-                ax.set_facecolor('#2E2E2E')
-                df_col.plot(kind='kde', color='#72B7B2', linewidth=2, ax=ax)
-                plt.title(selected_column)
-                plt.xlabel("Temperatură (°C)")
-                plt.ylabel("Densitate")
-                plt.tight_layout()
-                path = os.path.join('static', 'densitate.png')
-                plt.savefig(path, facecolor='#2E2E2E')
-                plt.close()
-                densitate_url = url_for('static', filename='densitate.png')
-
-            if 'autocorelatie' in selected_grafice:
-                fig = plt.figure(figsize=(6, 4), facecolor='#2E2E2E')
-                ax = fig.gca()
-                ax.set_facecolor('#2E2E2E')
-                autocorrelation_plot(df_col, ax=ax, color='#F58518')
-                ax.set_title(f"{selected_column}")
-                ax.grid(True, linestyle='--', alpha=0.5)
-                path = os.path.join('static', 'autocorelatie.png')
-                plt.tight_layout()
-                plt.savefig(path, facecolor='#2E2E2E')
-                plt.close()
-                autocorelatie_url = url_for('static', filename='autocorelatie.png')
-
-            if 'clasificare' in selected_grafice:
-                df_filtered = df_cache.dropna(subset=[selected_column, 'Gender'])
-
-                def clasifica(serie):
-                    return {
-                        'Subnormală': (serie < 36.5).sum(),
-                        'Normală': ((serie >= 36.5) & (serie <= 37.5)).sum(),
-                        'Ridicată': (serie > 37.5).sum()
-                    }
-
-                def generate_pie_chart(valori, filename):
-                    fig, ax = plt.subplots(figsize=(6, 5), facecolor='#2E2E2E')
-                    ax.set_facecolor('#2E2E2E')
-                    etichete = ['Subnormală', 'Normală', 'Ridicată']
-                    culori = ['#4C78A8', '#72B7B2', '#F58518']
-                    total = sum(valori)
-                    procente = [f"{label}: {val} ({val / total:.1%})" for label, val in zip(etichete, valori)]
-                    wedges, _ = ax.pie(valori, colors=culori, startangle=140, wedgeprops={'edgecolor': 'black'})
-                    ax.legend(wedges, procente, title="Categorii", loc="center left",
-                              bbox_to_anchor=(1, 0.5), facecolor='#2E2E2E',
-                              labelcolor='white', title_fontsize='10', fontsize='9')
-                    path = os.path.join('static', filename)
-                    plt.savefig(path, facecolor='#2E2E2E', bbox_inches='tight')
+                if df[selected_factor].nunique() <= 5:
+                    plt.figure(figsize=(10, 5))
+                    sns.kdeplot(data=df, x=selected_column, hue=selected_factor, fill=True, alpha=0.4)
+                    plt.title(f'Distribuții KDE pentru {selected_column} după {selected_factor}')
+                    plt.xlabel(f'{selected_column} (°C)')
+                    plt.ylabel('Densitate')
+                    plt.tight_layout()
+                    distrib_path = os.path.join('static', 'distributie.png')
+                    plt.savefig(distrib_path)
                     plt.close()
-                    return url_for('static', filename=filename)
+                    distributie_url = url_for('static', filename='distributie.png')
 
-                femei = df_filtered[df_filtered['Gender'].str.lower() == 'female'][selected_column].dropna()
-                barbati = df_filtered[df_filtered['Gender'].str.lower() == 'male'][selected_column].dropna()
-                cl_femei = clasifica(femei)
-                cl_barbati = clasifica(barbati)
-                femei_url = generate_pie_chart(list(cl_femei.values()), "clasificare_femei.png")
-                barbati_url = generate_pie_chart(list(cl_barbati.values()), "clasificare_barbati.png")
-                clasificare_text = {
-                    'femei_url': femei_url,
-                    'barbati_url': barbati_url,
-                    'femei_stats': cl_femei,
-                    'barbati_stats': cl_barbati,
-                    'femei_count': len(femei),
-                    'barbati_count': len(barbati)
+            else:
+                from scipy.stats import linregress
+                slope, intercept, r_value, p_value, _ = linregress(df[selected_factor], df[selected_column])
+                regression_info = {
+                    "ecuatie": f'y = {slope:.2f}x + {intercept:.2f}',
+                    "r": round(r_value, 2),
+                    "p": round(p_value, 4)
                 }
 
-    if not columns and df_cache is not None:
-        columns = df_cache.select_dtypes(include='number').columns.tolist()
+                plt.figure(figsize=(9, 6))
+                sns.set_theme(style="darkgrid")
+                sns.regplot(data=df, x=selected_factor, y=selected_column, line_kws={'color': 'orange'}, scatter_kws={'alpha': 0.4})
+                plt.title(f'Temperatura {selected_column} în funcție de {selected_factor}', fontsize=14)
+                plt.xlabel(selected_factor)
+                plt.ylabel(f'{selected_column} (°C)')
+                plt.tight_layout()
+                path = os.path.join('static', 'plot.png')
+                plt.savefig(path)
+                plt.close()
+                plot_url = url_for('static', filename='plot.png')
+
+        # === REGRESIE MULTIPLA ===
+        if df_cache is not None and selected_column:
+            factors = ["Humidity", "T_atm", "Age", "Distance", "Gender", "Ethnicity", "Cosmetics"]
+            available = [col for col in factors if col in df_cache.columns and col != selected_column]
+            df_model = df_cache[[selected_column] + available].dropna()
+
+            if not df_model.empty:
+                X = df_model[available]
+                y = df_model[selected_column]
+                cat_cols = X.select_dtypes(include='object').columns.tolist()
+                num_cols = X.select_dtypes(include='number').columns.tolist()
+
+                pipeline = Pipeline(steps=[
+                    ('preprocessor', ColumnTransformer([
+                        ('num', 'passthrough', num_cols),
+                        ('cat', OneHotEncoder(drop='first'), cat_cols)
+                    ])),
+                    ('regressor', LinearRegression())
+                ])
+                pipeline.fit(X, y)
+                y_pred = pipeline.predict(X)
+                r2 = r2_score(y, y_pred)
+
+                regressor = pipeline.named_steps['regressor']
+                encoder = pipeline.named_steps['preprocessor'].named_transformers_['cat']
+                encoded_features = list(encoder.get_feature_names_out(cat_cols))
+                all_features = num_cols + encoded_features
+                coef_list = list(zip(all_features, regressor.coef_))
+                coef_list.sort(key=lambda x: abs(x[1]), reverse=True)
+                regression_table = [{"factor": f, "coef": round(c, 3)} for f, c in coef_list]
+
+                # Interpretare automată
+                if r2 < 0.2:
+                    interpretare_text = "🔴 Rezultatul indică un model slab. Variabilele analizate par să aibă o influență redusă asupra temperaturii. Este posibil ca alți factori (fiziologici, emoționali sau tehnici) să joace un rol mai important."
+                elif r2 < 0.6:
+                    interpretare_text = "🟡 Modelul are o putere explicativă moderată. Variabilele analizate explică parțial variația temperaturii, dar influențe externe pot fi prezente."
+                else:
+                    interpretare_text = "🟢 Modelul este puternic. Variabilele analizate explică o proporție semnificativă din variația temperaturii."
+
+                regression_data = {
+                    "r2": round(r2, 3),
+                    "coeficients": regression_table,
+                    "interpretare": interpretare_text
+                }
+
+    if df_cache is not None:
+        temperature_columns = df_cache.select_dtypes(include='number').columns.tolist()
+        candidate_factors = ['Humidity', 'T_atm', 'Age', 'Gender', 'Ethnicity', 'Distance', 'Cosmetics']
+        factor_columns = [col for col in candidate_factors if col in df_cache.columns]
 
     return render_template(
         'index.html',
-        columns=columns,
-        grafice=GRAFICE_DISPONIBILE,
+        columns=temperature_columns,
+        factor_columns=factor_columns,
         selected_column=selected_column,
-        ref_choice=ref_choice,
-        comparison_url=comparison_url,
-        regression_url=regression_url,
+        selected_factor=selected_factor,
+        uploaded_filename=csv_filename,
+        plot_url=plot_url,
+        group_stats=group_stats,
         regression_info=regression_info,
-        stats=stats,
-        cumulativa_url=cumulativa_url,
-        densitate_url=densitate_url,
-        autocorelatie_url=autocorelatie_url,
-        clasificare_text=clasificare_text,
-        selected_grafice=selected_grafice,
-        uploaded_filename=csv_filename
+        distributie_url=distributie_url,
+        regression_data=regression_data
     )
+
 
 if __name__ == '__main__':
     app.run(debug=True)

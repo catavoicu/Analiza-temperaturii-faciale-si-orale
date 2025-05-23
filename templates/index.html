@@ -2,207 +2,175 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Analiza temperaturii faciale și orale</title>
+    <title>Analiză temperatură - Factor ambient</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #1E1E2E;
-            color: #ffffff;
-        }
-        .container {
-            max-width: 960px;
-            margin: 0 auto;
-            padding-bottom: 50px;
-        }
-        h1, h2, h5 {
-            font-weight: 600;
-        }
-        h1 {
-            font-size: 2.2rem;
-            text-align: center;
-            margin-top: 20px;
-            margin-bottom: 40px;
-        }
-        h2 {
-            font-size: 1.5rem;
-            margin-top: 40px;
-        }
-        h5 {
-            margin-top: 20px;
-        }
-        label {
-            margin-top: 10px;
-            margin-bottom: 5px;
-        }
-        .form-section, .charts-section {
-            background-color: #2A2A3D;
-            padding: 15px 20px 20px;
-            border-radius: 12px;
-            margin-bottom: 40px;
-            border: 1px solid #444;
-            text-align: center;
-        }
-        .form-select, .form-control {
-            background-color: #2E2E2E;
-            color: white;
+        body { background-color: #1E1E2E; color: white; }
+        .container { max-width: 900px; margin-top: 30px; }
+        .form-section, .result-section {
+            background-color: #2A2A3D; padding: 20px; border-radius: 12px; margin-bottom: 30px;
             border: 1px solid #444;
         }
-        .form-check {
-            display: flex;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-        .form-check-input {
-            margin: 0 10px 0 0;
-            width: 1.1em;
-            height: 1.1em;
-            background-color: #2E2E2E;
-            border: 1px solid #555;
-        }
-        .form-check-label {
-            margin: 0;
-        }
-        .btn {
-            margin-top: 10px;
-            padding: 10px 20px;
-            font-weight: 500;
-            border-radius: 8px;
-        }
-        .img-fluid {
-            border: 2px solid #444;
-            border-radius: 8px;
-            margin-top: 0 !important;
-        }
+        .form-select, .form-control { background-color: #2E2E2E; color: white; border: 1px solid #555; }
+        .img-fluid { border: 1px solid #555; border-radius: 8px; }
+        .card { background-color: #444B5A; border: 1px solid #888; color: #f0f0f0; }
+        .card-title { color: #FFD700; }
+        .card-text { font-size: 0.95rem; }
+        .alert-info { background-color: #1e3a5f; color: white; border-color: #285c8f; }
     </style>
 </head>
 <body class="container">
 
-<h1>Analiza temperaturii faciale și orale</h1>
+<h1 class="text-center mb-4">Analiză temperatură vs factori ambientali</h1>
 
+<!-- Upload CSV -->
 <div class="form-section">
-    <h2>Încarcă fișierul CSV</h2>
-    {% if error %}
-        <div class="alert alert-danger">{{ error }}</div>
-    {% endif %}
+    <h4>1. Încarcă fișierul CSV</h4>
     <form method="POST" enctype="multipart/form-data">
         <input type="file" name="file" accept=".csv" class="form-control mb-2" required>
         {% if uploaded_filename %}
-            <div class="form-text text-success mb-2">Fișier selectat: <strong>{{ uploaded_filename }}</strong></div>
-        {% else %}
-            <div class="form-text text-muted mb-2">Niciun fișier selectat</div>
+            <div class="text-success">Fișier selectat: <strong>{{ uploaded_filename }}</strong></div>
         {% endif %}
-        <button type="submit" class="btn btn-primary">Încarcă fișier</button>
+        <button type="submit" class="btn btn-primary mt-2">Încarcă fișier</button>
     </form>
 </div>
 
-
+<!-- Selectare analiză -->
 {% if columns %}
 <div class="form-section">
-    <h2>Selectează coloana și temperatura de referință</h2>
+    <h4>2. Selectează temperatura și factorul ambiental</h4>
     <form method="POST">
-        <label class="text-start w-100">Coloană de analizat:</label>
+        <label>Coloană de temperatură:</label>
         <select name="column" class="form-select mb-3" required>
             {% for col in columns %}
                 <option value="{{ col }}" {% if selected_column == col %}selected{% endif %}>{{ col }}</option>
             {% endfor %}
         </select>
 
-        <label class="text-start w-100">Temperatură de referință:</label>
-        <select name="ref" class="form-select mb-3" required>
-            <option value="aveOralF" {% if ref_choice == 'aveOralF' %}selected{% endif %}>Temperatura orală medie – femei</option>
-            <option value="aveOralM" {% if ref_choice == 'aveOralM' %}selected{% endif %}>Temperatura orală medie – bărbați</option>
+        <label>Factor ambiental:</label>
+        <select name="factor" class="form-select mb-3" required>
+            {% for col in factor_columns %}
+                <option value="{{ col }}" {% if selected_factor == col %}selected{% endif %}>{{ col }}</option>
+            {% endfor %}
         </select>
 
-        <h5 class="text-start">Alege graficele de generat:</h5>
-        <div class="mb-3 text-start">
-            {% for key, label in grafice.items() %}
-                <div class="form-check">
-                    <input class="form-check-input grafica-checkbox" type="checkbox" name="grafice" value="{{ key }}" id="{{ key }}"
-                           {% if key in selected_grafice %}checked{% endif %}>
-                    <label class="form-check-label" for="{{ key }}">{{ label }}</label>
-                </div>
-            {% endfor %}
-        </div>
-
-        <div class="text-start mb-3">
-            <button type="button" class="btn btn-outline-light btn-sm" id="toggleAllBtn" onclick="toggleAll()">Selectează toate</button>
-        </div>
-
-        <button type="submit" class="btn btn-success">Generează grafice</button>
+        <button type="submit" class="btn btn-success">Continuă analiza</button>
     </form>
 </div>
 {% endif %}
 
-{% if comparison_url %}
-<div class="charts-section">
-    <h2>Histogramă comparativă</h2>
-    <img src="{{ comparison_url }}" class="img-fluid">
-    {% if stats %}<p class="mt-3"><strong>{{ stats }}</strong></p>{% endif %}
+<!-- GRAFIC -->
+{% if plot_url %}
+<div class="result-section">
+    <h4 class="mb-3">📊 Rezultatul analizei "{{ selected_column }}" în funcție de "{{ selected_factor }}"</h4>
+    <img src="{{ plot_url }}" class="img-fluid mb-3">
 </div>
 {% endif %}
 
-{% if regression_url %}
-<div class="charts-section">
-    <h2>Regresie liniară</h2>
-    <img src="{{ regression_url }}" class="img-fluid">
-    {% if regression_info %}
-        <p class="mt-3">{{ regression_info|safe }}</p>
-    {% endif %}
+<!-- DISTRIBUȚIE KDE -->
+{% if distributie_url %}
+<div class="result-section">
+    <h5 class="mb-3">📈 Distribuția temperaturii după grupuri (KDE)</h5>
+    <img src="{{ distributie_url }}" class="img-fluid">
 </div>
 {% endif %}
 
-{% if cumulativa_url %}
-<div class="charts-section">
-    <h2>Histogramă cumulativă</h2>
-    <img src="{{ cumulativa_url }}" class="img-fluid">
-</div>
-{% endif %}
-
-{% if densitate_url %}
-<div class="charts-section">
-    <h2>Densitate de probabilitate</h2>
-    <img src="{{ densitate_url }}" class="img-fluid">
-</div>
-{% endif %}
-
-{% if autocorelatie_url %}
-<div class="charts-section">
-    <h2>Autocorelatie</h2>
-    <img src="{{ autocorelatie_url }}" class="img-fluid">
-</div>
-{% endif %}
-
-<!-- Clasificare -->
-{% if clasificare_text %}
-<div class="charts-section">
-    <h2 class="chart-title">Clasificare temperaturi</h2>
-    <div class="classification-report mt-3 text-center">
-        <p><strong>Am analizat {{ clasificare_text.femei_count + clasificare_text.barbati_count }} pacienți</strong>,
-           dintre care <strong>{{ clasificare_text.femei_count }}</strong> femei și
-           <strong>{{ clasificare_text.barbati_count }}</strong> bărbați.</p>
-
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <h5>Femei</h5>
-                <img src="{{ clasificare_text.femei_url }}" class="img-fluid mb-3">
-            </div>
-            <div class="col-md-6">
-                <h5>Bărbați</h5>
-                <img src="{{ clasificare_text.barbati_url }}" class="img-fluid mb-3">
-            </div>
-        </div>
+<!-- REGRESIE SIMPLĂ -->
+{% if regression_info %}
+<div class="result-section">
+    <div class="alert alert-info mt-3">
+        <p><strong>Ecuația regresiei:</strong> {{ regression_info.ecuatie }}</p>
+        <p><strong>Coeficient de corelație r:</strong> {{ regression_info.r }}</p>
+        <p><strong>Valoare p:</strong> {{ regression_info.p }}</p>
+        <p><strong>Interpretare:</strong>
+            {% if regression_info.r < 0.2 %}
+                Corelație foarte slabă (influență nesemnificativă)
+            {% elif regression_info.r < 0.4 %}
+                Corelație slabă
+            {% elif regression_info.r < 0.6 %}
+                Corelație moderată
+            {% elif regression_info.r < 0.8 %}
+                Corelație puternică
+            {% else %}
+                Corelație foarte puternică (influență semnificativă)
+            {% endif %}
+        </p>
     </div>
 </div>
 {% endif %}
 
-<script>
-function toggleAll() {
-    const checkboxes = document.querySelectorAll('.grafica-checkbox');
-    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-    checkboxes.forEach(cb => cb.checked = !allChecked);
-    document.getElementById('toggleAllBtn').textContent = allChecked ? 'Selectează toate' : 'Deselectează toate';
-}
-</script>
+<!-- STATISTICI PE GRUPURI -->
+{% if group_stats is not none and group_stats|length > 0 %}
+<div class="result-section">
+    <h5 class="mb-3">📈 Statistici pe grupuri:</h5>
+    <div class="row text-center">
+        {% for row in group_stats.values %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ row[0] }}</h5>
+                    <p class="card-text">
+                        <strong>Medie:</strong> {{ row[1] }} °C<br>
+                        <strong>Dev. standard:</strong> {{ row[2] }}<br>
+                        <strong>Număr:</strong> {{ row[3] }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- REGRESIE MULTIPLĂ -->
+{% if regression_data %}
+<div class="result-section mt-4">
+    <h4 class="mb-3">📊 Analiză regresie multiplă</h4>
+    <p><strong>Scor R²:</strong> {{ regression_data.r2 }}<br>
+    Cu cât R² este mai aproape de 1, cu atât modelul explică mai bine variațiile temperaturii.</p>
+
+    <div class="table-responsive mt-3">
+        <table class="table table-sm table-bordered table-dark">
+            <thead class="table-light text-dark">
+                <tr>
+                    <th>Factor</th>
+                    <th>Coeficient</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in regression_data.coeficients %}
+                <tr>
+                    <td>{{ item.factor }}</td>
+                    <td>
+                        {% if item.coef > 0 %}
+                            <span class="text-success">+{{ item.coef }}</span>
+                        {% elif item.coef < 0 %}
+                            <span class="text-danger">{{ item.coef }}</span>
+                        {% else %}
+                            {{ item.coef }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-3 px-3 py-2 rounded" style="background-color: #1f1f2e; border: 1px solid #444;">
+        <p style="color: #a0a0a0; font-size: 0.9rem;">
+            <span style="color: #00ff99;">🟢 Coeficient pozitiv</span> → contribuie la creșterea temperaturii<br>
+            <span style="color: #ff5555;">🔴 Coeficient negativ</span> → contribuie la scăderea temperaturii
+        </p>
+    </div>
+
+    {% if regression_data.interpretare %}
+    <div class="alert alert-secondary mt-4" style="background-color:#2a2a3a; color:#ccc;">
+        <strong>📌 Interpretare model:</strong><br>
+        {{ regression_data.interpretare }}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 
 </body>
 </html>
